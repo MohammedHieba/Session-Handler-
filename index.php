@@ -108,8 +108,10 @@ class MyAppSessionHandler extends SessionHandler {
                   }
 
                   if ( ( ( time() - ((int)$this->sessionStartTime) ) >= ($this->timer * 60) ) ) {
-                      session_regenerate_id(true);
                       $this->sessionStartTime = time();
+                      session_regenerate_id(true);
+                      $this->generateFingerPrint();
+
                   }
 
               }
@@ -117,6 +119,52 @@ class MyAppSessionHandler extends SessionHandler {
 
     }
 
+    //kill session function
+
+    public function kill(){
+
+        setcookie($this->cookie_name ,
+            "",
+            time()-1000 ,
+            $this->cookie_path,
+            $this->cookie_domain,
+            $this->cookie_secure,
+            $this->cookie_httponly); //delete cookie session
+
+        session_unset(); // empty session
+        session_destroy(); // remove session itself
+
+    }
+
+    //generate fingerprint function
+
+    private function generateFingerPrint(): bool
+    {
+
+        if(!isset( $this->fingerPrint)){
+            $user_agent_content = $_SERVER['HTTP_USER_AGENT'];
+            $ivlen = openssl_cipher_iv_length($this->cipher);
+            $this->cipherKey = openssl_random_pseudo_bytes($ivlen);
+            $session_id =session_id();
+            $this->fingerPrint = base64_encode($user_agent_content.$this->cipherKey.$session_id);
+            return  true;
+        }
+        return false;
+
+    }
+
+    //isValid fingerPrint function
+    public function isValidFingerPrint(): bool
+    {
+        $this->generateFingerPrint();
+        $fingerPrint = base64_encode($_SERVER['HTTP_USER_AGENT'].$this->cipherKey.session_id());
+        if( $this->fingerPrint === $fingerPrint ){
+            return true;
+        }
+        return false;
+
+
+    }
 
 
 
@@ -126,6 +174,8 @@ class MyAppSessionHandler extends SessionHandler {
 
 $session= new MyAppSessionHandler();
 $session->start();
-$session->name = 'Mohamed';
+var_dump($session->isValidFingerPrint() );
 
-var_dump($_SESSION);
+//$session->kill();
+
+//var_dump($_SESSION);
